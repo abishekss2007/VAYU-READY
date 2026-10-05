@@ -1,0 +1,158 @@
+{
+  "dataset": "SYNTHETIC FD001-like (NASA files missing)",
+  "trained_on": "2026-10-03",
+  "seed": 42,
+  "window": 30,
+  "rul_cap": 125,
+  "features": [
+    "s2",
+    "s3",
+    "s4",
+    "s7",
+    "s8",
+    "s9",
+    "s11",
+    "s12",
+    "s13",
+    "s14",
+    "s15",
+    "s17",
+    "s20",
+    "s21"
+  ],
+  "dropped_constant_sensors": [
+    "s1",
+    "s5",
+    "s6",
+    "s10",
+    "s16",
+    "s18",
+    "s19"
+  ],
+  "rul": {
+    "xgb": {
+      "rmse": 18.216,
+      "nasa_score": 827.7,
+      "version": "rul-xgb-2026-10-03",
+      "mean_lead_time_cycles": 30.4
+    },
+    "cnnlstm": {
+      "rmse": 19.499,
+      "nasa_score": 1088.7,
+      "version": "rul-cnnlstm-2026-10-03",
+      "mean_lead_time_cycles": 23.9
+    },
+    "best": "xgb",
+    "best_rmse": 18.216
+  },
+  "anomaly": {
+    "type": "autoencoder",
+    "threshold_error": 0.015125787816941738,
+    "version": "anomaly-autoencoder-2026-10-03",
+    "mean_cycles_left_at_first_flag": 83.5,
+    "mean_cycles_earlier_than_rul_alert": 53.1,
+    "engines_compared": 20
+  },
+  "ngafid": {
+    "skipped": "NGAFID-MC not found in data/ngafid/ - this optional model was not trained."
+  },
+  "defect": {
+    "data": "200 synthetic defect sentences (MaintNet not found in data/maintnet/)",
+    "samples": 200,
+    "cv_accuracy": 0.965,
+    "labels": [
+      "Airframe",
+      "Avionics",
+      "Electrical",
+      "Engine",
+      "Environmental control",
+      "Fuel",
+      "Hydraulics",
+      "Landing gear"
+    ],
+    "confusion_matrix": [
+      [
+        23,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      [
+        0,
+        23,
+        0,
+        0,
+        2,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        23,
+        0,
+        0,
+        0,
+        0,
+        2
+      ],
+      [
+        0,
+        0,
+        0,
+        25,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        25,
+        0,
+        0,
+        0
+      ],
+      [
+        1,
+        0,
+        0,
+        0,
+        0,
+        24,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        25,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        25
+      ]
+    ],
+    "note": "5-fold cross-validated on template-generated sentences; real logbook text will score lower.",
+    "version": "defect-tfidf-lr-2026-10-03"
+  }
+}

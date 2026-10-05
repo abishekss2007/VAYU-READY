@@ -1,0 +1,31 @@
+# Render blueprint for the cloud demo copy of the API. No Docker: Render's native Python runtime.
+# In Render: New > Blueprint > pick this repository, then fill in the two values marked "sync: false".
+services:
+  - type: web
+    name: vayu-ready-api
+    runtime: python
+    plan: free
+    region: singapore          # closest Render region to India
+    buildCommand: pip install -r backend/requirements.txt
+    # backend/ holds the app; the repository root holds ml/ and models/
+    startCommand: cd backend && PYTHONPATH=.:.. uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: DATABASE_URL        # Supabase "Session pooler" connection string (Mumbai project)
+        sync: false
+      - key: CORS_ORIGINS        # your Vercel URL, e.g. https://vayu-ready.vercel.app (no trailing slash)
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: APP_DB_PASSWORD     # password for the restricted database role the seed creates
+        generateValue: true
+      - key: OTP_DEMO_CODE
+        value: "482913"
+      - key: AUTO_SEED           # loads the synthetic demo data on first start
+        value: "1"
+      - key: CLASSIFICATION_LABEL
+        value: DEMO DATA – UNCLASSIFIED
+      # Not set on purpose: MQTT_URL and MINIO_ENDPOINT (live sensor feed and file storage are off in the cloud copy).
+      # PyTorch is not installed here to fit the free tier: RUL uses the XGBoost model; the anomaly score reads 0 on "Run prediction".

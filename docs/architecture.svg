@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 700" font-family="system-ui, Segoe UI, Arial, sans-serif">
+  <title>VAYU-READY architecture: 5 layers following ISO 13374</title>
+  <rect width="1000" height="700" fill="#ffffff"/>
+  <rect x="0" y="0" width="1000" height="28" fill="#fef3c7"/>
+  <text x="500" y="19" text-anchor="middle" font-size="12" font-weight="700" fill="#78350f">DEMO DATA – UNCLASSIFIED</text>
+  <text x="40" y="62" font-size="22" font-weight="700" fill="#0f2545">VAYU-READY architecture</text>
+  <text x="40" y="84" font-size="13" fill="#475569">5 layers following ISO 13374 · runs fully offline inside the base network (docker-compose)</text>
+
+  <g font-size="12" fill="#0f2545">
+    <!-- sources -->
+    <text x="40" y="118" font-size="11" font-weight="700" fill="#64748b">SOURCES</text>
+    <g>
+      <rect x="40" y="128" width="170" height="44" rx="6" fill="#f1f5f9" stroke="#cbd5e1"/><text x="125" y="155" text-anchor="middle">Engine sensors (MQTT)</text>
+      <rect x="225" y="128" width="170" height="44" rx="6" fill="#f1f5f9" stroke="#cbd5e1"/><text x="310" y="155" text-anchor="middle">Technical records (CSV/Excel)</text>
+      <rect x="410" y="128" width="170" height="44" rx="6" fill="#f1f5f9" stroke="#cbd5e1"/><text x="495" y="155" text-anchor="middle">Defects and tasks (forms)</text>
+      <rect x="595" y="128" width="170" height="44" rx="6" fill="#f1f5f9" stroke="#cbd5e1"/><text x="680" y="155" text-anchor="middle">Spares stock and indents</text>
+      <rect x="780" y="128" width="180" height="44" rx="6" fill="#f1f5f9" stroke="#cbd5e1"/><text x="870" y="155" text-anchor="middle">Depot (BRD) overhaul data</text>
+    </g>
+
+    <!-- layers -->
+    <g>
+      <rect x="40" y="196" width="920" height="62" rx="8" fill="#e0f2fe" stroke="#0ea5e9"/>
+      <text x="56" y="220" font-weight="700">1. Data acquisition</text>
+      <text x="56" y="242" fill="#334155">Eclipse Mosquitto (MQTT replay) · FastAPI forms and bulk import with row-level errors · MinIO private file store</text>
+
+      <rect x="40" y="270" width="920" height="62" rx="8" fill="#e0f2fe" stroke="#0ea5e9"/>
+      <text x="56" y="294" font-weight="700">2. Data manipulation</text>
+      <text x="56" y="316" fill="#334155">FastAPI + Pydantic validation · everything stored against the tail number · PostgreSQL 16 + TimescaleDB hypertable · row-level security</text>
+
+      <rect x="40" y="344" width="920" height="62" rx="8" fill="#dcfce7" stroke="#16a34a"/>
+      <text x="56" y="368" font-weight="700">3. State detection and health assessment</text>
+      <text x="56" y="390" fill="#334155">Anomaly autoencoder · defect text classifier (TF-IDF + Logistic Regression) · aircraft health score · digital twin per aircraft</text>
+
+      <rect x="40" y="418" width="920" height="62" rx="8" fill="#dcfce7" stroke="#16a34a"/>
+      <text x="56" y="442" font-weight="700">4. Prognostic assessment</text>
+      <text x="56" y="464" fill="#334155">RUL per engine (XGBoost and CNN-LSTM, SHAP top-3 reasons) · 30-day readiness forecast (with and without the plan)</text>
+
+      <rect x="40" y="492" width="920" height="62" rx="8" fill="#0f2545"/>
+      <text x="56" y="516" font-weight="700" fill="#ffffff">5. Advisory generation</text>
+      <text x="56" y="538" fill="#e2e8f0">Alerts and 12-hour review clock · OR-Tools CP-SAT maintenance plan · auto-raised spares indents · Fleet Health Score (5 rules) · what-if</text>
+    </g>
+
+    <!-- outputs -->
+    <text x="40" y="584" font-size="11" font-weight="700" fill="#64748b">OUTPUTS (Next.js 14 web app, 9 roles, WebSocket live updates)</text>
+    <g>
+      <rect x="40" y="594" width="215" height="40" rx="6" fill="#f1f5f9" stroke="#cbd5e1"/><text x="147" y="619" text-anchor="middle">Role dashboards and in-app alerts</text>
+      <rect x="275" y="594" width="215" height="40" rx="6" fill="#f1f5f9" stroke="#cbd5e1"/><text x="382" y="619" text-anchor="middle">Readiness reports (PDF / CSV)</text>
+      <rect x="510" y="594" width="215" height="40" rx="6" fill="#f1f5f9" stroke="#cbd5e1"/><text x="617" y="619" text-anchor="middle">Spares indents</text>
+      <rect x="745" y="594" width="215" height="40" rx="6" fill="#f1f5f9" stroke="#cbd5e1"/><text x="852" y="619" text-anchor="middle">Audit reports</text>
+    </g>
+  </g>
+
+  <!-- arrows -->
+  <g stroke="#94a3b8" stroke-width="2" fill="none">
+    <path d="M500 172 V196"/><path d="M500 258 V270"/><path d="M500 332 V344"/><path d="M500 406 V418"/><path d="M500 480 V492"/><path d="M500 554 V594"/>
+  </g>
+
+  <rect x="40" y="648" width="920" height="36" rx="6" fill="#fff7ed" stroke="#fdba74"/>
+  <text x="56" y="671" font-size="12" fill="#7c2d12">Across all layers: JWT + OTP login · role checks on every route · SHA-256 hash-chained audit trail · AI advises, an Engineering Officer decides</text>
+</svg>

@@ -1,0 +1,108 @@
+# VAYU-READY: fully offline deployment (demo laptop or base server).
+#   docker-compose up --build
+#   web: http://localhost:3000    API docs: http://localhost:8000/docs
+# No internet is needed after the images are built.
+
+x-api-env: &api-env
+  DATABASE_URL: postgresql+psycopg://vayu_app:${APP_DB_PASSWORD:-vayu_app_pw}@db:5432/vayu
+  OWNER_DATABASE_URL: postgresql+psycopg://vayu:${POSTGRES_PASSWORD:-vayu_owner_pw}@db:5432/vayu
+  APP_DB_PASSWORD: ${APP_DB_PASSWORD:-vayu_app_pw}
+  JWT_SECRET: ${JWT_SECRET:-change-me-demo-secret-change-me-demo-secret}
+  OTP_DEMO_CODE: ${OTP_DEMO_CODE:-482913}
+  CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+  MQTT_URL: mqtt://mqtt:1883
+  MODEL_DIR: /app/models
+  RESULTS_DIR: /app/results
+  DATA_DIR: /app/data
+  MINIO_ENDPOINT: minio:9000
+  MINIO_ROOT_USER: ${MINIO_ROOT_USER:-vayu}
+  MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-vayu-minio-secret}
+  CLASSIFICATION_LABEL: ${CLASSIFICATION_LABEL:-DEMO DATA – UNCLASSIFIED}
+
+x-api-volumes: &api-volumes
+  - ./models:/app/models
+  - ./results:/app/results
+  - ./data:/app/data
+
+services:
+  db:
+    image: timescale/timescaledb:latest-pg16
+    environment:
+      POSTGRES_USER: vayu
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vayu_owner_pw}
+      POSTGRES_DB: vayu
+      TIMESCALEDB_TELEMETRY: "off"
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vayu -d vayu"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  mqtt:
+    image: eclipse-mosquitto:2
+    volumes:
+      - ./deploy/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-vayu}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-vayu-minio-secret}
+      MINIO_UPDATE: "off"
+    volumes:
+      - miniodata:/data
+    restart: unless-stopped
+
+  # Creates the schema, RLS policies and demo data once (only when the database is empty).
+  seed:
+    build: { context: ., dockerfile: backend/Dockerfile }
+    environment: *api-env
+    volumes: *api-volumes
+    command: ["python", "-c", "import sqlalchemy as sa, seed; from app.db import owner_engine as e; seed.run() if not sa.inspect(e).has_table('users') else print('Database already has data: seed skipped. Run make seed to reload.')"]
+    depends_on:
+      db: { condition: service_healthy }
+    restart: "no"
+
+  api:
+    build: { context: ., dockerfile: backend/Dockerfile }
+    environment: *api-env
+    volumes: *api-volumes
+    ports:
+      - "8000:8000"
+    depends_on:
+      seed: { condition: service_completed_successfully }
+      mqtt: { condition: service_started }
+      minio: { condition: service_started }
+    restart: unless-stopped
+
+  # APScheduler jobs (RUL checks, overhaul limits, spares, escalations, log retention) + MQTT sensor replay
+  worker:
+    build: { context: ., dockerfile: backend/Dockerfile }
+    environment: *api-env
+    volumes: *api-volumes
+    command: ["python", "-m", "app.worker"]
+    depends_on:
+      seed: { condition: service_completed_successfully }
+      mqtt: { condition: service_started }
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+        NEXT_PUBLIC_DEMO_MODE: ${NEXT_PUBLIC_DEMO_MODE:-on}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  dbdata:
+  miniodata:

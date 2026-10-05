@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.db
+.env
+node_modules/
+.next/
+backups/
+data/cmapss/*.txt
+data/ngafid/
+data/maintnet/
+.claude/
+frontend/.claude/
+frontend/tsconfig.tsbuildinfo
+frontend/next-env.d.ts

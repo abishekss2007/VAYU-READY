@@ -1,0 +1,25 @@
+# Optional: TLS inside the base network.
+#   docker-compose -f docker-compose.yml -f docker-compose.tls.yml up --build
+# Web: https://localhost   API: https://localhost:8443
+# Caddy issues certificates from its own internal CA (no internet). Install the CA on the base PCs,
+# or replace "tls internal" in deploy/Caddyfile with certificates from the base PKI.
+services:
+  proxy:
+    image: caddy:2
+    ports:
+      - "443:443"
+      - "8443:8443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+    depends_on: [web, api]
+    restart: unless-stopped
+  api:
+    environment:
+      CORS_ORIGINS: https://localhost
+  web:
+    build:
+      args:
+        NEXT_PUBLIC_API_URL: https://localhost:8443
+volumes:
+  caddydata:

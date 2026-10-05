@@ -1,0 +1,63 @@
+[
+  {
+    "name": "RUL prediction",
+    "version": "rul-xgb-2026-10-03",
+    "purpose": "Estimates remaining useful life (in cycles, capped at 125) for each engine from the last 30 cycles of sensor data.",
+    "data": "SYNTHETIC FD001-like (NASA files missing)",
+    "trained_on": "2026-10-03",
+    "metrics": {
+      "Test RMSE (cycles)": 18.216,
+      "NASA score": 827.7,
+      "Mean lead time of first RUL<25 alert (cycles)": 30.4,
+      "Models compared": {
+        "xgb": 18.216,
+        "cnnlstm": 19.499
+      }
+    },
+    "limits": "Trained on simulated NASA data; must be retrained on service data before real use. Advisory only.",
+    "approved_by": "Demo Chief Engineering Officer (fictional)",
+    "alert_kind": "RUL"
+  },
+  {
+    "name": "Anomaly detection",
+    "version": "anomaly-autoencoder-2026-10-03",
+    "purpose": "Flags unusual sensor patterns before RUL drops. Score 0-1; flag at 0.5 (99th percentile of healthy data).",
+    "data": "SYNTHETIC FD001-like (NASA files missing) - first 30% of each training engine's life (assumed healthy)",
+    "trained_on": "2026-10-03",
+    "metrics": {
+      "Type": "autoencoder",
+      "Cycles left when the flag first fires (mean)": 83.5,
+      "Cycles earlier than the RUL alert (mean)": 53.1
+    },
+    "limits": "Trained on simulated NASA data; must be retrained on service data before real use. Advisory only.",
+    "approved_by": "Demo Chief Engineering Officer (fictional)",
+    "alert_kind": "ANOMALY"
+  },
+  {
+    "name": "Defect text classifier",
+    "version": "defect-tfidf-lr-2026-10-03",
+    "purpose": "Suggests a defect category from a technician's free-text entry. The technician confirms or corrects it.",
+    "data": "200 synthetic defect sentences (MaintNet not found in data/maintnet/)",
+    "trained_on": "2026-10-03",
+    "metrics": {
+      "Cross-validated accuracy": 0.965,
+      "Samples": 200
+    },
+    "limits": "5-fold cross-validated on template-generated sentences; real logbook text will score lower. A suggestion only; never used to decide airworthiness.",
+    "approved_by": "Demo Chief Engineering Officer (fictional)",
+    "alert_kind": null
+  },
+  {
+    "name": "Maintenance-need classifier (optional)",
+    "version": "not trained",
+    "purpose": "Classifies a real general-aviation flight as before or after maintenance, to show the method works on real flight data.",
+    "data": "NGAFID-MC",
+    "trained_on": null,
+    "metrics": {
+      "skipped": "NGAFID-MC not found in data/ngafid/ - this optional model was not trained."
+    },
+    "limits": "General-aviation data, not military aircraft. Not used by the application.",
+    "approved_by": null,
+    "alert_kind": null
+  }
+]
