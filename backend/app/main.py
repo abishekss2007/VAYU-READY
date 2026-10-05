@@ -78,6 +78,13 @@ for r in (auth, fleet, ops, schedule, admin, compliance):
     app.include_router(r.router)
 
 
+@app.get("/", tags=["system"])
+def root():
+    """The API has no screens of its own; this tells a visitor where to look."""
+    return {"app": "VAYU-READY API", "status": "running", "message": "This is the API. Open the web app to use VAYU-READY.",
+            "health": "/health", "docs": "/docs", "classification": settings.classification}
+
+
 @app.get("/health", tags=["system"])
 def health():
     return {"status": "ok", "time": utcnow().isoformat() + "Z"}
