@@ -24,8 +24,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
@@ -66,8 +66,8 @@ jobs:
       # The suite creates the schema, RLS policies and audit trigger from backend/sql/*.sql for every test.
       TEST_DATABASE_URL: postgresql+psycopg://vayu:vayu_ci_pw@localhost:5432/vayu
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
@@ -93,8 +93,8 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -108,9 +108,11 @@ jobs:
         run: npm run build
       - name: No external hosts in the built app
         # The app must run air-gapped: the bundle may only mention its own API address.
+        # Allowed below: documentation links in library code, and font-host names that are string constants inside
+        # Next.js itself (the app loads no remote fonts; single-letter hosts are dummy bases for URL parsing).
         run: |
-          if grep -rEoh "https?://[a-zA-Z0-9.-]+" .next/static | sort -u | grep -vE "localhost|w3\.org|reactjs\.org|react\.dev|nextjs\.org|github\.com|mozilla\.org|example\.com|recharts\.org|fb\.me|radix-ui\.com|lucide\.dev|npmjs\.com|tailwindcss\.com|feross\.org|vercel\.com|jquery\.org|openjsf\.org|js\.foundation|schema\.org|xmlsoft\.org|opensource\.org" ; then
-            echo "::warning::Unexpected host names found in the bundle (listed above). Check they are comments or docs links, not runtime calls."
+          if grep -rEoh "https?://[a-zA-Z0-9.-]+" .next/static | sort -u | grep -vE "localhost|https?://[a-z]$|fonts\.googleapis\.com|fonts\.gstatic\.com|use\.typekit\.net|w3\.org|reactjs\.org|react\.dev|nextjs\.org|github\.com|mozilla\.org|example\.com|recharts\.org|fb\.me|radix-ui\.com|lucide\.dev|npmjs\.com|tailwindcss\.com|feross\.org|vercel\.com|jquery\.org|openjsf\.org|js\.foundation|schema\.org|xmlsoft\.org|opensource\.org" ; then
+            echo "::error::Unexpected host names found in the built app (listed above). The app must not call other hosts."; exit 1
           fi
 
   config:
@@ -118,12 +120,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: docker-compose files are valid
         run: |
           docker compose -f docker-compose.yml config -q
           docker compose -f docker-compose.yml -f docker-compose.tls.yml config -q
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: render.yaml and workflow files are valid YAML

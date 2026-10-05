@@ -1,5 +1,23 @@
 # Final check
 
+## Update, 5 October 2026: CI/CD and cloud deployment
+
+| Check | Result | Notes |
+|---|---|---|
+| GitHub Actions CI | Pass | 4 jobs: tests on SQLite, tests on PostgreSQL 16 + TimescaleDB, frontend build, config checks |
+| 39 tests on PostgreSQL 16 + TimescaleDB | Pass (in CI) | First real run of `schema.sql` and `rls.sql`; the audit trigger and tamper test run against PostgreSQL |
+| Row-level security as the restricted `vayu_app` role | Pass (in CI) | `backend/tests/check_rls.py`: squadron isolation, Admin sees no alerts/defects/tasks, cannot change or truncate `audit_log`, cannot drop tables, hypertable exists |
+| 39 tests on Python 3.11 without PyTorch | Pass | Same environment as CI and Render |
+| Cloud copy live | Pass | https://vayu-ready.vercel.app (Vercel) + https://vayu-ready-api.onrender.com (Render) + Supabase |
+| Deploy workflow smoke tests | Pass | API healthy and reading the database; wrong login refused; web app up; CORS correct |
+| All 16 Mermaid diagrams parse | Pass | Checked with the Mermaid library; not viewed on github.com |
+| Logged in to the cloud copy and walked the demo | **Not done by me** | Verified only by the smoke tests above |
+
+Found and fixed on the way: the seed script failed on PostgreSQL because the driver read `%` in the SQL files as a placeholder.
+
+Still not run: the docker-compose stack end to end (only syntax-checked in CI), the MQTT live feed, MinIO, backup/restore, the TLS proxy.
+The rows below are the original check from 3 October and are kept as written; where they say PostgreSQL was untested, the table above supersedes them.
+
 Checked on 3 October 2026 on a Windows 11 laptop. Docker Desktop was installed but its engine was not running and `make` is not installed,
 so everything below was run **locally: Python 3.14 virtual environment, SQLite, `next build` + `next start`**. Rows marked **Not run** still need doing on a machine with Docker.
 
