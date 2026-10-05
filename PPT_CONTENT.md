@@ -33,7 +33,7 @@ VAYU-READY predicts component failures before they ground aircraft, joins mainte
 
 ## Slide 3: Technical approach
 
-- Architecture diagram: `docs/architecture.svg` (5 layers following ISO 13374)
+- Architecture diagram: `docs/architecture.md` (Mermaid, 5 layers following ISO 13374; screenshot it for the slide)
   1. Data acquisition → 2. Data manipulation → 3. State detection and health assessment → 4. Prognostic assessment → 5. Advisory generation
 - Tech stack
   - Frontend: Next.js 14, React, TypeScript, Tailwind CSS, shadcn/ui-style components, Recharts

@@ -1,0 +1,86 @@
+name: Deploy
+
+# Continuous delivery for the cloud demo copy.
+#   1. Runs only after CI has passed on main (or when started by hand).
+#   2. Triggers the deploys if deploy hooks are configured; otherwise Render and Vercel deploy from GitHub themselves.
+#   3. Waits for the new version and smoke-tests the live site.
+#
+# Optional repository settings (Settings > Secrets and variables > Actions):
+#   secrets   RENDER_DEPLOY_HOOK_URL, VERCEL_DEPLOY_HOOK_URL   deploy only after CI passes (turn auto-deploy off on both platforms)
+#   variables API_URL, WEB_URL                                 if your addresses differ from the defaults below
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  API_URL: ${{ vars.API_URL || 'https://vayu-ready-api.onrender.com' }}
+  WEB_URL: ${{ vars.WEB_URL || 'https://vayu-ready.vercel.app' }}
+  COMMIT: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+jobs:
+  deploy:
+    name: Deploy and smoke-test
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    # Never deploy a commit whose tests failed.
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    steps:
+      - name: Trigger deploys (only if deploy hooks are configured)
+        env:
+          RENDER_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+          VERCEL_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -n "$RENDER_HOOK" ]; then curl -fsS -X POST "$RENDER_HOOK" -o /dev/null && echo "Render deploy triggered"; else echo "No Render hook: Render deploys from GitHub on its own"; fi
+          if [ -n "$VERCEL_HOOK" ]; then curl -fsS -X POST "$VERCEL_HOOK" -o /dev/null && echo "Vercel deploy triggered"; else echo "No Vercel hook: Vercel deploys from GitHub on its own"; fi
+
+      - name: Wait for the API to serve this commit
+        run: |
+          echo "Waiting for $API_URL to serve commit $COMMIT"
+          for i in $(seq 1 60); do
+            live=$(curl -fsS -m 30 "$API_URL/" 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin).get('commit',''))" 2>/dev/null || true)
+            if [ "$live" = "$COMMIT" ]; then echo "API is serving $COMMIT"; exit 0; fi
+            echo "  attempt $i: live commit is '${live:-not answering}'"
+            sleep 15
+          done
+          # Free-tier builds can be slow or a newer commit may already be live. The smoke tests below still decide pass or fail.
+          echo "::warning::The API did not report commit $COMMIT within 15 minutes (last seen: '${live:-not answering}'). Smoke tests run against whatever is live."
+
+      - name: "Smoke test: API is healthy and can read the database"
+        run: |
+          curl -fsS -m 90 --retry 5 --retry-delay 15 --retry-all-errors "$API_URL/health" | grep -q '"status":"ok"'
+          curl -fsS -m 60 --retry 3 --retry-delay 10 "$API_URL/config/public" | grep -q '"app":"VAYU-READY"'
+          echo "API healthy"
+
+      - name: "Smoke test: login is refused without a valid password, protected routes need a login"
+        run: |
+          code=$(curl -s -m 60 -o /dev/null -w "%{http_code}" -X POST "$API_URL/auth/login" -H "Content-Type: application/json" -d '{"email":"nobody@vayu.demo","password":"wrong-password"}')
+          [ "$code" = "401" ] || { echo "::error::Expected 401 for a wrong login, got $code"; exit 1; }
+          code=$(curl -s -m 60 -o /dev/null -w "%{http_code}" "$API_URL/dashboard")
+          [ "$code" = "401" ] || { echo "::error::Expected 401 for /dashboard without a login, got $code"; exit 1; }
+          echo "Auth checks passed"
+
+      - name: "Smoke test: web app is up and allowed to call the API"
+        run: |
+          curl -fsS -m 60 --retry 5 --retry-delay 10 --retry-all-errors "$WEB_URL/login" | grep -q "VAYU-READY"
+          allow=$(curl -s -m 60 -o /dev/null -D - -X OPTIONS "$API_URL/auth/login" -H "Origin: $WEB_URL" -H "Access-Control-Request-Method: POST" -H "Access-Control-Request-Headers: content-type" | tr -d '\r' | grep -i "^access-control-allow-origin:" | awk '{print $2}')
+          [ "$allow" = "$WEB_URL" ] || { echo "::error::The API does not allow requests from $WEB_URL (CORS_ORIGINS on Render). Got: '$allow'"; exit 1; }
+          echo "Web app is up and CORS is correct"
+
+      - name: Summary
+        run: |
+          {
+            echo "### VAYU-READY is live"
+            echo "- Web app: $WEB_URL"
+            echo "- API: $API_URL (docs at $API_URL/docs)"
+            echo "- Commit: \`$COMMIT\`"
+          } >> "$GITHUB_STEP_SUMMARY"

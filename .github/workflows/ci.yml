@@ -1,0 +1,135 @@
+name: CI
+
+# Runs on every push and pull request. All four jobs must pass.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.11"
+  NODE_VERSION: "20"
+
+jobs:
+  backend:
+    name: Backend tests (SQLite)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Install dependencies
+        run: pip install -r backend/requirements.txt
+      - name: Byte-compile all Python (syntax check)
+        run: python -m compileall -q backend ml run_local.py
+      - name: Run tests
+        run: |
+          set -o pipefail
+          python -m pytest -q 2>&1 | tee pytest.log
+      - name: Show failures as annotations
+        if: failure()
+        run: |
+          grep -E "^(FAILED|ERROR|E  )" pytest.log | head -10 | while IFS= read -r line; do echo "::error title=pytest::$line"; done || true
+
+  backend-postgres:
+    name: Backend tests (PostgreSQL 16 + TimescaleDB)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      db:
+        image: timescale/timescaledb:latest-pg16
+        env:
+          POSTGRES_USER: vayu
+          POSTGRES_PASSWORD: vayu_ci_pw
+          POSTGRES_DB: vayu
+          TIMESCALEDB_TELEMETRY: "off"
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U vayu -d vayu"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      # The suite creates the schema, RLS policies and audit trigger from backend/sql/*.sql for every test.
+      TEST_DATABASE_URL: postgresql+psycopg://vayu:vayu_ci_pw@localhost:5432/vayu
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Install dependencies
+        run: pip install -r backend/requirements.txt
+      - name: Run tests against PostgreSQL
+        run: |
+          set -o pipefail
+          python -m pytest -q 2>&1 | tee pytest.log
+      - name: Row-level security check (restricted role vayu_app)
+        run: python backend/tests/check_rls.py
+      - name: Show failures as annotations
+        if: failure()
+        run: |
+          grep -E "^(FAILED|ERROR|E  )" pytest.log | head -10 | while IFS= read -r line; do echo "::error title=pytest-postgres::$line"; done || true
+
+  frontend:
+    name: Frontend build and type check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Build (includes the TypeScript check)
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+          NEXT_PUBLIC_API_URL: http://localhost:8000
+        run: npm run build
+      - name: No external hosts in the built app
+        # The app must run air-gapped: the bundle may only mention its own API address.
+        run: |
+          if grep -rEoh "https?://[a-zA-Z0-9.-]+" .next/static | sort -u | grep -vE "localhost|w3\.org|reactjs\.org|react\.dev|nextjs\.org|github\.com|mozilla\.org|example\.com|recharts\.org|fb\.me|radix-ui\.com|lucide\.dev|npmjs\.com|tailwindcss\.com|feross\.org|vercel\.com|jquery\.org|openjsf\.org|js\.foundation|schema\.org|xmlsoft\.org|opensource\.org" ; then
+            echo "::warning::Unexpected host names found in the bundle (listed above). Check they are comments or docs links, not runtime calls."
+          fi
+
+  config:
+    name: Deployment config checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: docker-compose files are valid
+        run: |
+          docker compose -f docker-compose.yml config -q
+          docker compose -f docker-compose.yml -f docker-compose.tls.yml config -q
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: render.yaml and workflow files are valid YAML
+        run: pip install -q pyyaml && python -c "import yaml,glob; [yaml.safe_load(open(f, encoding='utf-8')) for f in ['render.yaml', *glob.glob('.github/workflows/*.yml')]]; print('ok')"
+      - name: No secrets or databases committed
+        run: |
+          if git ls-files | grep -E "(^|/)\.env$|\.db$|\.pem$|\.key$"; then
+            echo "::error::A secret or database file is committed (listed above)."; exit 1
+          fi

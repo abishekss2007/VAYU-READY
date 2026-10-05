@@ -1,6 +1,7 @@
 """VAYU-READY API. Runs fully offline: no external calls, no telemetry."""
 import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
@@ -82,7 +83,8 @@ for r in (auth, fleet, ops, schedule, admin, compliance):
 def root():
     """The API has no screens of its own; this tells a visitor where to look."""
     return {"app": "VAYU-READY API", "status": "running", "message": "This is the API. Open the web app to use VAYU-READY.",
-            "health": "/health", "docs": "/docs", "classification": settings.classification}
+            "health": "/health", "docs": "/docs", "classification": settings.classification,
+            "commit": os.getenv("RENDER_GIT_COMMIT", "local")}
 
 
 @app.get("/health", tags=["system"])
