@@ -67,10 +67,13 @@ REASONS_OK = [
 def create_schema(engine):
     if engine.dialect.name == "postgresql":
         with engine.begin() as conn:
-            conn.exec_driver_sql((SQL_DIR / "schema.sql").read_text())
-            conn.exec_driver_sql((SQL_DIR / "rls.sql").read_text())
+            # Run the SQL files on the raw psycopg connection with no parameters: several statements
+            # per call are allowed and "%" in the SQL is not mistaken for a placeholder.
+            raw = conn.connection.driver_connection
+            raw.execute((SQL_DIR / "schema.sql").read_text(encoding="utf-8"))
+            raw.execute((SQL_DIR / "rls.sql").read_text(encoding="utf-8"))
             pw = settings.app_db_password.replace("'", "''")
-            conn.exec_driver_sql(f"ALTER ROLE vayu_app PASSWORD '{pw}'")
+            raw.execute(f"ALTER ROLE vayu_app PASSWORD '{pw}'")
     else:
         Base.metadata.drop_all(engine)
         Base.metadata.create_all(engine)
